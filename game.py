@@ -1,6 +1,10 @@
 import pygame
 import math
 import pygame.sprite
+import ast
+
+pygame.font.init()
+font = pygame.font.SysFont('Arial', 12)
 
 # Initialize Pygame
 pygame.init()
@@ -17,9 +21,13 @@ pygame.display.set_caption("2D Car Game")
 black = (0, 0, 0)
 white = (255, 255, 255)
 red = (255, 0, 0)
+green = (0, 255, 0)
+gray = (150, 150, 150)
+yellow = (255, 255, 0)
 
 # pygame fps tracker clock
 clock = pygame.time.Clock()
+target_fps = 60  # Target FPS - even if we don't hit this, the game will behave the same
 
 # Car dimensions
 car_width = 50
@@ -29,148 +37,368 @@ car_height = 30
 car_x = screen_width // 2 - car_width // 2
 car_y = screen_height - car_height
 
-# Car speed sensetivity
-car_speed_sensetivity = 5 #0.5
+# Car physics parameters (independent of FPS)
+car_speed = 0  # Current speed
+car_angle = 0 # Angle of rotation for the car
+car_acceleration = 300  # Units per second²
+car_max_speed = 500  # Maximum speed in units per second
+car_steering_speed = 180  # Degrees per second
+car_friction = 1.5  # Friction coefficient (applied per second)
 
-# Angle of rotation for the car
-car_angle = 0
+track_color = gray
 
-# Car angle sensetivity
-car_angle_sensetivity = 5 #0.5
-
-# Friction
-friction = 1
-
-
-# Track
-# track_points = [(0,0), (100,200), (400, 400)]  # Example track layout
-# track_points = [(472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (472.5398464866781, 716.4969865456673), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (152.50808598152415, 607.7381169237608), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (108.65104785838628, 315.6254673654495), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (348.0828698939398, 106.38772249133413), (672.9207631346376, 71.16211512517549), (672.9207631346376, 71.16211512517549), (672.9207631346376, 71.16211512517549), (672.9207631346376, 71.16211512517549), (672.9207631346376, 71.16211512517549), (1007.4352384526411, 219.8249690794207), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1012.002965740854, 221.8586522947997), (1109.92869753939, 518.9723958169956), (1109.92869753939, 518.9723958169956), (1109.92869753939, 518.9723958169956), (1109.92869753939, 518.9723958169956), (1109.92869753939, 518.9723958169956), (1109.92869753939, 518.9723958169956), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (952.1395832769898, 670.5092067671433), (575.0921881954378, 757.0292243779127), (575.0921881954378, 757.0292243779127), (575.0921881954378, 757.0292243779127), (575.0921881954378, 757.0292243779127), (575.0921881954378, 757.0292243779127), (575.0921881954378, 757.0292243779127)]
-track_points = [(329.4837518914949, 644.1105539322239), (329.4837518914949, 644.1105539322239), (324.72846931001914, 645.6556389040986), (319.8377313063501, 646.6951973581874), (314.8651218295088, 647.2178396745257), (309.8651218295088, 647.2178396745257), (304.89251235266744, 646.6951973581874), (300.0017743489984, 645.6556389040986), (207.77107137084406, 620.3771243498819), (202.79846189400268, 620.8997666662202), (197.82585241716131, 621.4224089825585), (192.85324294031994, 621.9450512988968), (187.88063346347857, 622.4676936152351), (182.9080239866372, 622.9903359315734), (177.93541450979583, 623.5129782479117), (172.96280503295446, 624.03562056425), (118.94079082170705, 622.030505504599), (114.61066380278486, 619.530505504599), (110.56557883091011, 616.5915792431366), (106.52049385903538, 613.6526529816742), (102.47540888716065, 610.7137267202119), (98.43032391528592, 607.7748004587495), (98.43032391528592, 607.7748004587495), (98.43032391528592, 607.7748004587495), (81.88493552276756, 589.3992850473089), (79.85125230738856, 584.831557759096), (78.30616733551382, 580.0762751776202), (77.26660888142503, 575.1855371739512), (76.74396656508677, 570.2129276971098), (76.74396656508677, 570.2129276971098), (58.58005187042407, 530.617371720091), (54.534966898549335, 527.6784454586286), (50.204839879627144, 525.1784454586286), (45.63711259141414, 523.1447622432496), (40.88183000993837, 521.5996772713748), (40.88183000993837, 521.5996772713748), (40.88183000993837, 521.5996772713748), (10.244378467346674, 497.4304357197279), (7.305452205884309, 493.3853507478531), (4.366525944421944, 489.34026577597837), (1.4275996829595794, 485.2951808041036), (1.4275996829595794, 485.2951808041036), (1.4275996829595794, 485.2951808041036), (11.680659185818122, 405.1076820585734), (12.203301502156389, 400.13507258173206), (12.203301502156389, 395.13507258173206), (11.680659185818122, 390.1624631048907), (10.641100731729326, 385.2717251012217), (9.60154227764053, 380.3809870975527), (9.60154227764053, 380.3809870975527), (-11.675321600700816, 331.1676980595406), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (-15.391045728087786, 327.8220450277463), (45.749295124502126, 248.9551214217341), (50.721904601343496, 249.47776373807238), (55.694514078184866, 250.00040605441066), (60.66712355502624, 250.52304837074894), (65.6397330318676, 251.04569068708722), (70.61234250870898, 251.5683330034255), (75.58495198555035, 252.09097531976377), (75.58495198555035, 252.09097531976377), (104.10143635467172, 244.45000636208297), (108.14652132654646, 241.5110801006206), (111.86224545393344, 238.16542706882632), (115.20789848572772, 234.44970294143934), (118.1468247471901, 230.4046179695646), (118.1468247471901, 230.4046179695646), (118.1468247471901, 230.4046179695646), (128.204077649995, 207.8156581054099), (128.7267199663333, 202.84304862856854), (128.7267199663333, 197.84304862856854), (128.204077649995, 192.87043915172717), (127.16451919590622, 187.97970114805815), (125.61943422403148, 183.2244185665824), (125.61943422403148, 183.2244185665824), (127.16451919590622, 153.74244102408582), (129.19820241128522, 149.1747137358728), (131.69820241128522, 144.84458671695063), (134.6371286727476, 140.7995017450759), (137.57605493420996, 136.75441677320117), (137.57605493420996, 136.75441677320117), (137.57605493420996, 136.75441677320117), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (180.11053717269107, 114.54541710666375), (185.08314664953244, 114.02277479032549), (359.7482935173329, 108.73680229942411), (356.80936725587054, 104.69171732754937), (353.4637142240762, 100.97599320016239), (353.4637142240762, 100.97599320016239), (353.4637142240762, 100.97599320016239), (353.4637142240762, 100.97599320016239), (353.4637142240762, 100.97599320016239), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (548.6657704854188, 89.98686298911294), (732.5608355213819, 120.11938277854065), (732.5608355213819, 120.11938277854065), (732.5608355213819, 120.11938277854065), (732.5608355213819, 120.11938277854065), (732.5608355213819, 120.11938277854065), (732.5608355213819, 120.11938277854065), (855.2703822583896, 93.01980351058585), (855.2703822583896, 93.01980351058585), (855.2703822583896, 93.01980351058585), (858.209308519852, 97.06488848246059), (861.1482347813144, 101.10997345433533), (864.0871610427768, 105.15505842621008), (867.0260873042391, 109.20014339808482), (1047.5494633049368, 190.33550062280236), (1052.4402013086058, 189.29594216871357), (1057.4128107854472, 188.7732998523753), (1062.4128107854472, 188.7732998523753), (1067.3854202622886, 189.29594216871357), (1072.2761582659575, 190.33550062280236), (1077.0314408474333, 191.8805855946771), (1103.9571562903993, 273.7844079095853), (1103.434513974061, 278.75701738642664), (1102.9118716577227, 283.729626863268), (1102.3892293413844, 288.7022363401093), (1101.866587025046, 293.67484581695066), (1101.3439447087078, 298.647455293792), (1099.0547096559608, 421.6435197228988), (1101.993635917423, 425.6886046947736), (1105.3392889492172, 429.40432882216055), (1108.6849419810114, 433.1200529495475), (1112.0305950128056, 436.8357770769345), (1115.3762480445998, 440.5515012043215), (1173.033652998354, 509.2303023941361), (1174.5787379702288, 513.9855849756119), (1175.6182964243176, 518.876322979281), (1176.1409387406559, 523.8489324561224), (1176.1409387406559, 528.8489324561224), (1175.6182964243176, 533.8215419329638), (1134.564093777313, 601.8340014270303), (1129.8088111958373, 603.3790863989051), (1125.0535286143615, 604.9241713707798), (1120.2982460328858, 606.4692563426546), (1115.54296345141, 608.0143413145294), (1110.7876808699343, 609.5594262864041), (1001.2859490954938, 706.2203676224407), (999.7408641236191, 710.9756502039164), (998.1957791517443, 715.7309327853922), (996.6506941798696, 720.4862153668679), (994.6170109644905, 725.0539426550808), (992.1170109644905, 729.3840696740031), (949.746271672354, 752.6269016160417), (944.855533668685, 753.6664600701305), (939.9647956650159, 754.7060185242193), (935.0740576613468, 755.7455769783081), (930.1833196576778, 756.7851354323969), (925.2107101808364, 757.3077777487352), (757.1873859513495, 715.2749053130948), (752.2147764745081, 715.7975476294331), (747.2421669976667, 716.3201899457714), (742.2695575208253, 716.8428322621097), (737.2969480439839, 717.365474578448), (732.3243385671425, 717.8881168947863), (662.7078058913629, 725.2051093235226), (657.7351964145215, 725.7277516398609), (652.7625869376801, 726.2503939561992), (647.7899774608387, 726.7730362725375), (642.8173679839973, 727.2956785888758), (637.8173679839973, 727.2956785888758), (524.4926553391294, 606.6171484367883), (520.1625283202072, 604.1171484367883), (515.5948010319943, 602.0834652214093), (510.83951845051854, 600.5383802495345), (505.9487804468495, 599.4988217954457), (500.9761709700082, 598.9761794791074), (496.00356149316684, 598.4535371627691), (433.6063352911227, 605.8975784838825), (429.89061116373574, 609.2432315156768), (426.5449581319414, 612.9589556430637), (423.60603187047906, 617.0040406149385), (420.6671056090167, 621.0491255868133), (417.7281793475543, 625.094210558688), (392.9762951374375, 667.9085952822165), (392.45365282109924, 672.8812047590579), (392.45365282109924, 677.8812047590579), (392.9762951374375, 682.8538142358993), (393.49893745377574, 687.8264237127407), (394.021579770114, 692.7990331895821), (394.54422208645224, 697.7716426664235), (395.0668644027905, 702.7442521432649), (395.58950671912874, 707.7168616201063), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375), (399.77064524983473, 747.4977374348375)]
-
-
-track_color = (150, 150, 150)
-
-# track maker
+# Debug variables
 track_maker = []
+show_debug = True  # Toggle with D key
+
+# Load car image
+try:
+    car_image = pygame.image.load("car.jpeg").convert_alpha()
+    car_image = pygame.transform.scale(car_image, (car_width, car_height))
+except pygame.error:
+    # Create a fallback car if image not found
+    car_image = pygame.Surface((car_width, car_height), pygame.SRCALPHA)
+    pygame.draw.polygon(car_image, (255, 0, 0), [(0, car_height), (car_width//2, 0), (car_width, car_height)])
+
+# Create car mask for collision detection
+car_mask = pygame.mask.from_surface(car_image)
+
+
+def load_arrays_from_file(filepath):
+    """Loads left_boundary and right_boundary arrays from a text file."""
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+
+        # Split the content into left and right boundary strings
+        left_str, right_str = content.split('\n')
+
+        # Use ast.literal_eval to safely convert the strings to lists of tuples
+        left_boundary = ast.literal_eval(left_str.split("=")[1].strip())
+        right_boundary = ast.literal_eval(right_str.split("=")[1].strip())
+
+        print("inside load array")
+        return left_boundary, right_boundary
+
+    except FileNotFoundError:
+        print(f"Error: File not found at {filepath}")
+        return None, None
+    except (SyntaxError, ValueError) as e:
+        print(f"Error: Invalid file format. {e}")
+        return None, None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        return None, None
+
+left_boundary, right_boundary = load_arrays_from_file("track_1.txt")
+all_boundaries = left_boundary + right_boundary
+
+
+
+
+
+
+
+
+
+
+"""
+FUNCTIONS
+"""
 
 # Function to draw the track
 def draw_track():
-    pygame.draw.lines(screen, track_color, track_points, closed = True)
+        
+    if len(left_boundary) > 1:
+        pygame.draw.lines(screen, track_color, True, left_boundary, 2)
 
+    if len(right_boundary) > 1:
+        pygame.draw.lines(screen, track_color, True, right_boundary, 2)
+    
+        
 # Function to rotate the car image
 def rotate_car(image, angle):
     rotated_image = pygame.transform.rotate(image, angle)
     return rotated_image
 
-# Function to check for collision with the track
-# def check_collision_sprites():
-#     collisions = pygame.sprite.spritecollide(car_sprite, track_sprites, False)
-#     return collisions
 
-# def check_collision_distance():
-#     car_rect = rotated_car_image.get_rect(center=(car_x, car_y))
-#     car_corners = [car_rect.topleft, car_rect.topright, car_rect.bottomleft, car_rect.bottomright]
-#     collision = False
-#     for i in range(len(track_points) - 1):
-#         track_segment = pygame.Rect(track_points[i], track_points[i + 1])
-#         for corner in car_corners:
-#             distance = track_segment.distance_to(corner)
-#             if distance < car_width / 2:  # Adjust threshold as needed
-#                 collision = True
-#                 break
-#         if collision:
-#             break
-#     return collision
+# Add these lines near your existing draw functions to visualize collision boxes and lines
+def draw_car_collision_box(screen, car_x, car_y, car_angle):
+    """Draw the car's collision box/lines for visualization"""
+    car_corners = [
+        (-car_width//2, -car_height//2),  # Top-left
+        (car_width//2, -car_height//2),   # Top-right
+        (car_width//2, car_height//2),    # Bottom-right
+        (-car_width//2, car_height//2)    # Bottom-left
+    ]
+    
+    # Rotate car corners
+    angle_rad = math.radians(-car_angle) # car angle negetive is required due to coordinate system
+    rotated_corners = []
+    for x, y in car_corners:
+        rx = x * math.cos(angle_rad) - y * math.sin(angle_rad)
+        ry = x * math.sin(angle_rad) + y * math.cos(angle_rad)
+        rotated_corners.append((car_x + rx, car_y + ry))
+    
+    # Draw the car's collision box
+    for i in range(len(rotated_corners)):
+        start_point = rotated_corners[i]
+        end_point = rotated_corners[(i+1) % len(rotated_corners)]
+        pygame.draw.line(screen, (255, 0, 0), start_point, end_point, 2)  # Red lines for car box
 
 
-# Load car image
-car_image = pygame.image.load("car.jpeg")  # Replace with your car image path
-car_image = pygame. transform. scale(car_image, (50,30))
+def draw_active_collision_segments(screen, car_x, car_y, car_angle, boundary_points, check_radius=150):
+    """Draw only the track segments near the car that are being checked for collision"""
+    if len(boundary_points) < 2:
+        return
+    
+    # Draw only segments within check_radius of the car
+    for i in range(len(boundary_points) - 1):
+        p1 = boundary_points[i]
+        p2 = boundary_points[i+1]
+        
+        # If either point is within radius, draw the segment
+        dist1 = math.hypot(p1[0] - car_x, p1[1] - car_y)
+        dist2 = math.hypot(p2[0] - car_x, p2[1] - car_y)
+        
+        if dist1 < check_radius or dist2 < check_radius:
+            pygame.draw.line(screen, yellow , p1, p2, 3)  # Yellow lines for active segments
 
-# Main game loop
+
+def check_boundary_collision(car_x, car_y, car_angle, boundary_points):
+    """
+    Check if the car has collided with any line segment formed by connecting
+    the boundary points in sequence.
+    
+    Args:
+        car_x, car_y: Center position of the car
+        car_angle: Rotation angle of the car in degrees
+        boundary_points: List of (x,y) points defining a boundary
+    
+    Returns:
+        bool: True if car has collided with any boundary line, False otherwise
+    """
+    if len(boundary_points) < 2:
+        return False  # Need at least 2 points to form a line
+    
+    # Create a rotated hitbox for the car
+    car_corners = [
+        (-car_width//2, -car_height//2),  # Top-left
+        (car_width//2, -car_height//2),   # Top-right
+        (car_width//2, car_height//2),    # Bottom-right
+        (-car_width//2, car_height//2)    # Bottom-left
+    ]        
+    
+    # Rotate car corners
+    angle_rad = math.radians(-car_angle) # car angle negetive is required due to coordinate system
+    rotated_corners = []
+    for x, y in car_corners:
+        rx = x * math.cos(angle_rad) - y * math.sin(angle_rad)
+        ry = x * math.sin(angle_rad) + y * math.cos(angle_rad)
+        rotated_corners.append((car_x + rx, car_y + ry))
+    
+    # Create car edges from corners
+    car_edges = []
+    for i in range(len(rotated_corners)):
+        car_edges.append((rotated_corners[i], rotated_corners[(i+1) % len(rotated_corners)]))
+    
+    # Check for line intersections between car edges and boundary lines
+    for i in range(len(boundary_points) - 1):
+        boundary_p1 = boundary_points[i]
+        boundary_p2 = boundary_points[i+1]
+        
+        for car_edge in car_edges:
+            car_p1, car_p2 = car_edge
+            
+            if line_segments_intersect(car_p1, car_p2, boundary_p1, boundary_p2):
+                # Visualize the collision point
+                midpoint_x = (car_p1[0] + car_p2[0]) / 2
+                midpoint_y = (car_p1[1] + car_p2[1]) / 2
+                pygame.draw.circle(screen, (255, 0, 0), (int(midpoint_x), int(midpoint_y)), 5)
+                return True  # Collision detected
+    
+    return False  # No collision
+
+
+def line_segments_intersect(p1, p2, p3, p4):
+    """
+    Check if two line segments (p1-p2) and (p3-p4) intersect.
+    
+    Args:
+        p1, p2: Points defining first line segment as (x,y) tuples
+        p3, p4: Points defining second line segment as (x,y) tuples
+    
+    Returns:
+        bool: True if the segments intersect, False otherwise
+    """
+    # Extract coordinates
+    x1, y1 = p1
+    x2, y2 = p2
+    x3, y3 = p3
+    x4, y4 = p4
+    
+    # Calculate direction vectors
+    dx1 = x2 - x1
+    dy1 = y2 - y1
+    dx2 = x4 - x3
+    dy2 = y4 - y3
+    
+    # Calculate denominator for intersection formulas
+    denominator = (dy2 * dx1 - dx2 * dy1)
+    
+    # Check if lines are parallel (denominator near zero)
+    if abs(denominator) < 1e-10:
+        return False
+    
+    # Calculate parameters for intersection point
+    ua = ((dx2 * (y1 - y3)) - (dy2 * (x1 - x3))) / denominator
+    ub = ((dx1 * (y1 - y3)) - (dy1 * (x1 - x3))) / denominator
+    
+    # Check if intersection point is within both line segments
+    return (0 <= ua <= 1) and (0 <= ub <= 1)
+
+
+def draw_HUD_info(screen, has_collided):
+    """Display HUD in the top-left corner"""
+    collision_text = font.render(f'COLLISION: {str(has_collided).upper()}', True, (255, 0, 0))  # Red text for collision
+
+    
+    screen.blit(collision_text, (10, 10))  # Position in top-left corner
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+"""
+MAIN GAME LOOP
+"""
+
 running = True
-while running:
+last_time = pygame.time.get_ticks() / 1000.0  # Starting time in seconds
 
+while running:
+    # Calculate delta time for frame-rate independence
+    current_time = pygame.time.get_ticks() / 1000.0  # Current time in seconds
+    delta_time = current_time - last_time  # Time elapsed since last frame
+
+    last_time = current_time
+    
+    # Cap delta_time to prevent physics issues if game freezes momentarily
+    if delta_time > 0.1:
+        delta_time = 0.1
+    
     # Handle events
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
-    # Check for pressed keys and update car movement
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_d:
+                show_debug = not show_debug
+            if event.key == pygame.K_r:
+                car_x = screen_width/2
+                car_y = screen_height/2
+                car_speed = 0
+                car_angle = 0
+    
+    # Get pressed keys
     pressed_keys = pygame.key.get_pressed()
-
-    if not pressed_keys[pygame.K_UP] and not pressed_keys[pygame.K_DOWN]:
-        car_speed_sensetivity *= friction  # Apply friction before movement calculations
-
-
-    if pressed_keys[pygame.K_UP] or pressed_keys[pygame.K_DOWN]:
-        if pressed_keys[pygame.K_LEFT]:
-            car_angle += car_angle_sensetivity * 1.2
-        if pressed_keys[pygame.K_RIGHT]:
-            car_angle -= car_angle_sensetivity * 1.2
+    
+    # Apply friction (scaled by delta_time)
+    car_speed /= pow(car_friction, delta_time)
+    
+    # Handle steering (scaled by delta_time)
+    if pressed_keys[pygame.K_LEFT]:
+        car_angle += car_steering_speed * delta_time
+    if pressed_keys[pygame.K_RIGHT]:
+        car_angle -= car_steering_speed * delta_time
+    
+    # Handle acceleration/braking (scaled by delta_time)
     if pressed_keys[pygame.K_UP]:
-        car_x += car_speed_sensetivity * math.cos(math.radians(car_angle))
-        car_y -= car_speed_sensetivity * math.sin(math.radians(car_angle))
+        car_speed += car_acceleration * delta_time
+        car_speed = min(car_speed, car_max_speed)
     if pressed_keys[pygame.K_DOWN]:
-        car_x -= car_speed_sensetivity * math.cos(math.radians(car_angle))
-        car_y += car_speed_sensetivity * math.sin(math.radians(car_angle))
+        car_speed -= car_acceleration * delta_time
+        car_speed = max(car_speed, -car_max_speed/2)  # Reverse is slower
+    
+    # Calculate movement vector based on car angle and speed
+    movement_x = car_speed * delta_time * math.cos(math.radians(car_angle))
+    movement_y = car_speed * delta_time * -math.sin(math.radians(car_angle))
+    
+    # Calculate new position
+    new_car_x = car_x + movement_x
+    new_car_y = car_y + movement_y
+    
+    left_collision = check_boundary_collision(car_x, car_y, car_angle, left_boundary)
+    right_collision = check_boundary_collision(car_x, car_y, car_angle, right_boundary)
+    collision = True if left_collision or right_collision else False
+    
+    # update car position
+    car_x = new_car_x
+    car_y = new_car_y
 
     
+    # Add point to track_maker if 1 key is pressed
     if pressed_keys[pygame.K_1]:
         track_maker.append((car_x, car_y))
-    print("track maker", track_maker)
-
-    print("absolute position ", (car_x, car_y))
-    print("car_angle ", car_angle)
-
-
-    # print fps
-    clock.tick()
-    # print("game fps ", clock.get_fps())
+        print("Added point:", (car_x, car_y))
+    
+    # Print track_maker points if 2 key is pressed
+    if pressed_keys[pygame.K_2]:
+        print("track_points =", track_maker)
+    
+    
+    # Debug info
+    if show_debug:
+        print(f"FPS: {clock.get_fps():.1f}, Position: ({car_x:.1f}, {car_y:.1f}), Angle: {car_angle:.1f}, Speed: {car_speed:.1f}")
+        if collision:
+            print("collision")
 
     # Clear screen
     screen.fill(white)
-
+    
+    # Draw track
+    draw_track()
+    
     # Draw car
     rotated_car_image = rotate_car(car_image, car_angle)
     car_rect = rotated_car_image.get_rect(center=(car_x, car_y))
     screen.blit(rotated_car_image, car_rect)
 
-    # Draw track
-    pygame.draw.lines(screen, track_color, points = track_points, closed = True)
+    if show_debug:
+        # Draw car collision box
+        draw_car_collision_box(screen, car_x, car_y, car_angle)
 
+        # Draw track segments that are near the car
+        draw_active_collision_segments(screen, car_x, car_y, car_angle, left_boundary, check_radius=200)
+        draw_active_collision_segments(screen, car_x, car_y, car_angle, right_boundary, check_radius=200)
 
-
-
-
-
-    # # Create a sprite group for the track segments
-    # track_sprites = pygame.sprite.Group()
-    # for i in range(len(track_points) - 1):
-    #     track_segment = pygame.sprite.Sprite()
-    #     track_segment.rect = pygame.Rect(track_points[i], track_points[i + 1])
-    #     track_sprites.add(track_segment)
-
-    # # Create a sprite for the car
-    # car_sprite = pygame.sprite.Sprite()
-    # car_sprite.image = rotated_car_image
-    # car_sprite.rect = car_sprite.image.get_rect(center=(car_x, car_y))
-
-    # # if check_collision_sprites():
-    # #     print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC")
-
-    # for i in range(len(track_points) - 1):
-    #     line = pygame.draw.line(screen, (12, 34, 45), track_points[i], track_points[i + 1])
-    # clipped_line = car_sprite.rect.clipline(line)
-    # print("clipped line, ", clipped_line)
-
-    # if check_collision_distance():
-    #     print("CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCcc")
-
-
+    # Draw on HUD values
+    draw_HUD_info(screen, collision)
 
     # Update display
     pygame.display.flip()
+    
+    # Cap the frame rate (still useful for efficiency)
+    clock.tick(target_fps)
+
+# Print final track points if any were created
+if track_maker:
+    print("Final track points:")
+    print(track_maker)
 
 # Quit Pygame
 pygame.quit()
